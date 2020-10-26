@@ -3,7 +3,7 @@ const SQS = new AWS.SQS({apiVersion: '2020-08-04'});
 
 // SQS メッセージキューイング
 exports.queueing = async function(body) {
-    const QUEUE_URL = 'https://sqs.ap-northeast-1.amazonaws.com/875743830765/zop-dev-sqs01';
+    const QUEUE_URL = 'https://sqs.ap-northeast-1.amazonaws.com/889520124611/zop-prod-sqs01';
 
     // 送信するメッセージ
     var params = {

@@ -40,7 +40,7 @@ exports.download = async function(bucket, key) {
   // コマンド実行時のパラメータ
   var params = {
     DocumentName: 'AWS-RunShellScript',   // 必須らしい
-    InstanceIds: ['i-012eaa0934a7bb3be'], // EC2 のインスタンスIDを指定
+    InstanceIds: ['i-0a2e31826d1b896cd'], // EC2 のインスタンスIDを指定
     Parameters: {
       commands: commands,
       executionTimeout: ['300']
