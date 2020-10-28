@@ -60,10 +60,10 @@ do
         then
                 delextension=${key/${EXT_ZIP}/}
                 originalpath=${delextension//-/\/}
-                echo "${originalpath} をZIP化したファイルのS3アップロードが失敗しました。"
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] ${error}" >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」Could not upload ${originalpath} to S3." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」${error}" >> ${ERROR_LOG_FILE}
+	else
+		# 送信済みZIPファイルの削除
+		rm ${uploadfile}
         fi
-
-        # 送信済みZIPファイルの削除
-        rm ${uploadfile}
 done
