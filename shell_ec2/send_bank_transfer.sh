@@ -23,18 +23,36 @@ RESULT_FILE_NAME="send_result.txt"
 TIMEOUT_SEC=600
 
 # 引数で渡された送信対象ディレクトリ
-TARGET_DIR=$1
+SEND_DIR=$1
+
+# 引数で渡されたネットワーク種別
+NETWORK_TYPE=$2
 
 #####################################################################################################
 
-# S3へ送信するZIPファイルのパス
-zip_path="${ZIP_DIR}${TARGET_DIR//\//-}${EXT_ZIP}"
+# 引数が2つでなければ終了
+if [ $# != 2 ]
+then
+	exit 9
+fi
 
-# 引数で指定されたディレクトリが存在しなければ終了（通常の運用ではあり得ない）
-if [ ! -e ${TARGET_DIR} ]
+# 引数で指定されたディレクトリが存在しなければ終了
+if [ ! -e ${SEND_DIR} ]
 then
         exit 9
 fi
+
+# S3へ送信するZIP化対象のディレクトリ
+target_dir=${SEND_DIR}/${NETWORK_TYPE}/
+
+# ネットワーク種別のディレクトリが存在しなければ終了
+if [ ! -e ${target_dir} ]
+then
+	exit 9
+fi
+
+# S3へ送信するZIPファイルのパス
+zip_path="${ZIP_DIR}${target_dir//\//-}${EXT_ZIP}"
 
 # zipファイルの一時格納先ディレクトリが無かったら作成
 if [ ! -e ${ZIP_DIR} ]
@@ -43,7 +61,7 @@ then
 fi
 
 # ディレクトリのZIP化
-zip -r ${zip_path} ${TARGET_DIR}
+zip -r ${zip_path} ${target_dir}
 
 # S3へのファイルアップロード
 key=${zip_path##*/}
@@ -53,7 +71,7 @@ error=`aws s3api put-object --bucket ${BUCKET_NAME} --key .${key} --body ${zip_p
 # 送信エラーになった場合
 if [ -n "${error}" ]
 then
-        echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not upload ${TARGET_DIR} to S3." >> ${ERROR_LOG_FILE}
+        echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not upload ${target_dir} to S3." >> ${ERROR_LOG_FILE}
         echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 
 	# タイムアウトエラー
@@ -65,7 +83,7 @@ rm ${zip_path}
 
 # 対象ディレクトリ下に結果ファイルが配置されるのを待つ
 wait_sec=0
-while [ ! -f ${TARGET_DIR}${RESULT_FILE_NAME} ]
+while [ ! -f ${target_dir}${RESULT_FILE_NAME} ]
 do
         if [ ${TIMEOUT_SEC} < ${wait_sec} ]
         then
@@ -81,7 +99,7 @@ do
 done
 
 # 結果ファイルの配置を検知したら内容を取得する
-result=`head -n 1 ${TARGET_DIR}${RESULT_FILE_NAME} | tail -n 1`
+result=`head -n 1 ${target_dir}${RESULT_FILE_NAME} | tail -n 1`
 
 # 0 -> 全銀ミドルからの結果取得成功
 # 1 -> ISDN接続失敗
