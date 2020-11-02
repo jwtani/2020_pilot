@@ -161,10 +161,10 @@ do
         network_type=${n##*-}
 
         # ISDN接続
-        exit_code=`bankconnect.sh ${network_type} start`
+        start_exit_code=`bankconnect.sh ${network_type} start`
 
         # ISDN接続に成功したか
-        if [ ${exit_code} = 0 ]
+        if [ ${start_exit_code} = 0 ]
         then
                 # 解凍したディレクトリ下の要素ファイル名を取得
                 transfer_setting_file_name=`ls ${dir_path} | grep .ini`
@@ -180,8 +180,11 @@ do
 
         else
                 # ISDN接続に失敗した場合
-                echo 1 >> ${dir_path}${RESULT_FILE_NAME}
-                echo ${exit_code} >> ${dir_path}${RESULT_FILE_NAME}
+                echo 1 >> ${dir_path}${result_file_name}
+                echo ${start_exit_code} >> ${dir_path}${result_file_name}
+
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」ISDN connection failed." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」ISDN connect result code : ${start_exit_code}" >> ${ERROR_LOG_FILE}
         fi
 
         # /data/jmc/jmc_w_bank/bank_send/[ネットワーク種別] 以下をZIP化
@@ -191,7 +194,7 @@ do
 	# アプリへの結果返却用ファイルは削除
 	rm ${dir_path}${RESULT_FILE_NAME}
 
-	if [ ${exit_code} = 0 ]
+	if [ ${start_exit_code} = 0 ]
 	then
 		# 送信済み用のディレクトリ（無ければ作成）
 		ok_dir_path=${dir_path/send_bank/send_bank_ok}
@@ -202,6 +205,16 @@ do
 
 		# 送信済み用のディレクトリへファイル移動
 		mv ${dir_path}* ${ok_dir_path}
+	fi
+
+	# ISDN切断
+        stop_exit_code=`bankconnect.sh ${network_type} stop`
+
+	if [ ${stop_exit_code} = 0 ]
+	then
+                # ISDN切断に失敗した場合
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」ISDN disconnection failed." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」ISDN disconnect result code : ${stop_exit_code}" >> ${ERROR_LOG_FILE}
 	fi
 done
 
