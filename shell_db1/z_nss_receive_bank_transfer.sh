@@ -11,7 +11,7 @@ BUCKET_NAME="zop-prod-to-ec2"
 AWSCLI_USER="data-linkage"
 
 # ZIP化したファイルの一時配置場所
-ZIP_DIR=/home/jw/jmc_upload/tmp_nss/
+ZIP_DIR=/home/jw/jmc_upload/tmp/
 
 # ZIP拡張子
 EXT_ZIP=".zip"
