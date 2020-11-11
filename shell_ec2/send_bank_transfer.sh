@@ -20,7 +20,7 @@ ERROR_LOG_FILE=/var/log/zenikyo/error.log
 RESULT_FILE_NAME="send_result.txt"
 
 # 結果ファイルが配置されるのを待つ秒数
-TIMEOUT_SEC=600
+TIMEOUT_SEC=3600
 
 # 引数で渡された送信対象ディレクトリ
 SEND_DIR=$1
@@ -61,7 +61,7 @@ then
 fi
 
 # ディレクトリのZIP化
-zip -r ${zip_path} ${target_dir}
+zip -er --password=3z061119 ${zip_path} ${target_dir}
 
 # S3へのファイルアップロード
 key=${zip_path##*/}
