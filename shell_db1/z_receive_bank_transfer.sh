@@ -56,6 +56,15 @@ then
         mkdir -p ${SQS_DIR}
 fi
 
+# ダウンロードに成功したかのフラグ
+is_download_ok=0
+
+# ダウンロード対象のファイル名
+key=""
+
+# ディレクトリのパス
+dir_parh=""
+
 attributes=`aws sqs get-queue-attributes --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER}`
 
 # タブ文字で区切り、一番最後にある要素を取得（キューに存在するメッセージの個数）
@@ -97,7 +106,7 @@ do
                 continue
         fi
 
-        # 銀行振替データ送信のファイルでなければスルー
+        # 銀行振替結果取込のファイルでなければスルー
         if [ ! `echo $body | grep 'bank_result'` ]
         then
                 continue
@@ -127,96 +136,106 @@ do
         # ダウンロードに成功した場合は、一度検出したメッセージIDを残しておく（重複検出用）
         echo ${id} >> ${SQS_DUPLICATE_ID_LIST}
 
-        md5cs=`openssl md5 -binary ${ZIP_DIR_D}${key} | base64`
-        aws_md5cs=`aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} | jq -r '.md5checksum'`
-
-        # MD5チェックサム値比較で整合性エラーになった場合
-        if [ ${md5cs} != ${aws_md5cs} ]
-        then
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not download ${key} from S3." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」MD5 checksum integrity error." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」local file MD5 = ${md5cs}" >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」S3 file MD5 = ${aws_md5cs}" >> ${ERROR_LOG_FILE}
-
-		rm ${ZIP_DIR_D}${key}
-
-		exit 0
-       fi
-
-        # 解凍＆配置
-        unzip -o -P 3z061119 ${ZIP_DIR_D}${key} -d /
-
-        # S3のファイル削除
-        error=`aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
-
-        # S3のファイル削除でエラーになった場合
-        if [ -n "${error}" ]
-        then
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not remove ${key} on S3." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」${error}" >> ${ERROR_LOG_FILE}
-        fi
-
-        # ネットワーク種別をzipファイル名から判別
-        n=${key%-*}
-        network_type=${n##*-}
-
-        # ISDN接続
-        start_exit_code=`bankconnect.sh ${network_type} start`
-
-        # ISDN接続に成功したか
-        if [ ${start_exit_code} = 0 ]
-        then
-                # 解凍したディレクトリ下の要素ファイル名を取得
-                transfer_setting_file_name=`ls ${dir_path} | grep .ini`
-
-                # 全銀ミドル実行
-                z_result=`/usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
-                z_result_code=$?
-
-                # zclient標準出力と終了コードを結果ファイルに書込み
-		echo 0 >> ${dir_path}${RESULT_FILE_NAME}
-                echo z_result_code >> ${dir_path}${RESULT_FILE_NAME}
-                echo z_result >> ${dir_path}${RESULT_FILE_NAME}
-
-        else
-                # ISDN接続に失敗した場合
-                echo 1 >> ${dir_path}${result_file_name}
-                echo ${start_exit_code} >> ${dir_path}${result_file_name}
-
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN connection failed." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN connect result code : ${start_exit_code}" >> ${ERROR_LOG_FILE}
-        fi
-
-        # /data/jmc/jmc_w_bank/bank_result/[ネットワーク種別] 以下をZIP化
-        zippath="${ZIP_DIR_U}${dir_path//\//-}${EXT_ZIP}"
-        zip -er --password=3z061119 ${zippath} ${dir_path}
-
-	# アプリへの結果返却用ファイルは削除
-	rm ${dir_path}${RESULT_FILE_NAME}
-
-	if [ ${start_exit_code} = 0 ]
-	then
-		# 送信済み用のディレクトリ（無ければ作成）
-		ok_dir_path=${dir_path/bank_result/bank_result_ok}
-		if [ ! -e ${ok_dir_path} ]
-		then
-			mkdir -p ${ok_dir_path}
-		fi
-
-		# 送信済み用のディレクトリへファイル移動
-		mv ${dir_path}* ${ok_dir_path}
-	fi
-
-	# ISDN切断
-        stop_exit_code=`bankconnect.sh ${network_type} stop`
-
-	if [ ${stop_exit_code} = 0 ]
-	then
-                # ISDN切断に失敗した場合
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN disconnection failed." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN disconnect result code : ${stop_exit_code}" >> ${ERROR_LOG_FILE}
-	fi
+	# ダウンロード対象ファイルが取得できた場合はループを抜ける
+	is_download_ok=1
+	break;
 done
+
+# ダウンロード対象ファイルが取得できなかった場合は処理終了
+if [ ${is_download_ok} = 0 ]
+then
+	exit 0
+fi
+
+md5cs=`openssl md5 -binary ${ZIP_DIR_D}${key} | base64`
+aws_md5cs=`aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} | jq -r '.md5checksum'`
+
+# MD5チェックサム値比較で整合性エラーになった場合
+if [ ${md5cs} != ${aws_md5cs} ]
+then
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not download ${key} from S3." >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」MD5 checksum integrity error." >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」local file MD5 = ${md5cs}" >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」S3 file MD5 = ${aws_md5cs}" >> ${ERROR_LOG_FILE}
+
+	rm ${ZIP_DIR_D}${key}
+
+	exit 0
+fi
+
+# 解凍＆配置
+unzip -o -P 3z061119 ${ZIP_DIR_D}${key} -d /
+
+# S3のファイル削除
+error=`aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
+
+# S3のファイル削除でエラーになった場合
+if [ -n "${error}" ]
+then
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not remove ${key} on S3." >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」${error}" >> ${ERROR_LOG_FILE}
+fi
+
+# ネットワーク種別をzipファイル名から判別
+n=${key%-*}
+network_type=${n##*-}
+
+# ISDN接続
+start_exit_code=`bankconnect.sh ${network_type} start`
+
+# ISDN接続に成功したか
+if [ ${start_exit_code} = 0 ]
+then
+	# 解凍したディレクトリ下の要素ファイル名を取得
+	transfer_setting_file_name=`ls ${dir_path} | grep .ini`
+
+	# 全銀ミドル実行
+	z_result=`/usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
+	z_result_code=$?
+
+	# zclient標準出力と終了コードを結果ファイルに書込み
+	echo 0 >> ${dir_path}${RESULT_FILE_NAME}
+	echo z_result_code >> ${dir_path}${RESULT_FILE_NAME}
+	echo z_result >> ${dir_path}${RESULT_FILE_NAME}
+
+else
+	# ISDN接続に失敗した場合
+	echo 1 >> ${dir_path}${RESULT_FILE_NAME}
+	echo ${start_exit_code} >> ${dir_path}${RESULT_FILE_NAME}
+
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN connection failed." >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN connect result code : ${start_exit_code}" >> ${ERROR_LOG_FILE}
+fi
+
+# /data/jmc/jmc_w_bank/bank_result/[ネットワーク種別] 以下をZIP化
+zippath="${ZIP_DIR_U}${dir_path//\//-}${EXT_ZIP}"
+zip -er --password=3z061119 ${zippath} ${dir_path}
+
+# アプリへの結果返却用ファイルは削除
+rm ${dir_path}${RESULT_FILE_NAME}
+
+if [ ${start_exit_code} = 0 ]
+then
+	# 送信済み用のディレクトリ（無ければ作成）
+	ok_dir_path=${dir_path/bank_result/bank_result_ok}
+	if [ ! -e ${ok_dir_path} ]
+	then
+		mkdir -p ${ok_dir_path}
+	fi
+
+	# 送信済み用のディレクトリへファイル移動
+	mv ${dir_path}* ${ok_dir_path}
+fi
+
+# ISDN切断
+stop_exit_code=`bankconnect.sh ${network_type} stop`
+
+if [ ${stop_exit_code} != 0 ]
+then
+	# ISDN切断に失敗した場合
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN disconnection failed." >> ${ERROR_LOG_FILE}
+	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」ISDN disconnect result code : ${stop_exit_code}" >> ${ERROR_LOG_FILE}
+fi
 
 # S3へのファイルアップロード
 upload_files=`find ${ZIP_DIR_U} -type f`
