@@ -20,7 +20,7 @@ ERROR_LOG_FILE=/var/log/zenikyo/error.log
 RESULT_FILE_NAME="receive_result.txt"
 
 # 結果ファイルが配置されるのを待つ秒数
-TIMEOUT_SEC=3600
+TIMEOUT_SEC=1800
 
 # 引数で渡された送信対象ディレクトリ
 SEND_DIR=$1
