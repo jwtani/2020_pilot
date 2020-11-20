@@ -42,18 +42,18 @@ SQS_DUPLICATE_ID_LIST=${SQS_DIR}bank_send_id_list.txt
 # zipファイルの一時格納先ディレクトリが無かったら作成
 if [ ! -e ${ZIP_DIR_D} ]
 then
-	mkdir -p ${ZIP_DIR_D}
+        mkdir -p ${ZIP_DIR_D}
 fi
 if [ ! -e ${ZIP_DIR_U} ]
 then
-	mkdir -p ${ZIP_DIR_U}
-	touch ${SQS_DUPLICATE_ID_LIST}
+        mkdir -p ${ZIP_DIR_U}
+        touch ${SQS_DUPLICATE_ID_LIST}
 fi
 
 # SQS用のディレクトリが無かったら作成
 if [ ! -e ${SQS_DIR} ]
 then
-	mkdir -p ${SQS_DIR}
+        mkdir -p ${SQS_DIR}
 fi
 
 # ダウンロードに成功したかのフラグ
@@ -72,16 +72,16 @@ echo 受信したメッセージ数 = $msg_count
 
 for ((i=0; i<${msg_count}; i++))
 do
-	# ID重複フラグ
-	is_duplicate=0
+        # ID重複フラグ
+        is_duplicate=0
 
-	# 戻り値
-	# 1: "MESSAGE" 文字列
-	# 2: Body
-	# 3: MD5
-	# 4: ID
-	# 5: ReceiptHandle
-	message=`aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
+        # 戻り値
+        # 1: "MESSAGE" 文字列
+        # 2: Body
+        # 3: MD5
+        # 4: ID
+        # 5: ReceiptHandle
+        message=`aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
 
 	# メッセージID
 	id=`echo ${message} | jq '.Messages[] | .MessageId'`
@@ -91,15 +91,15 @@ do
 	body=`echo ${message} | jq '.Messages[] | .Body'`
 	body=${body//\"}
 
-	# 重複したIDかどうかチェック
-	cat ${SQS_DUPLICATE_ID_LIST} | while read received_id
-	do
-		if [ ${id} = ${received_id} ]
-		then
-			is_duplicate=1
-			break
-		fi
-	done
+        # 重複したIDかどうかチェック
+        cat ${SQS_DUPLICATE_ID_LIST} | while read received_id
+        do
+                if [ ${id} = ${received_id} ]
+                then
+                        is_duplicate=1
+                        break
+                fi
+        done
 
 	# IDが重複していた場合は処理をしない
 	if [ ${is_duplicate} = 1 ]
@@ -116,20 +116,20 @@ do
 	# ダウンロード対象のファイル名
 	key=${body}
 
-	# S3よりファイルのダウンロード
-	error=`aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
+        # S3よりファイルのダウンロード
+        error=`aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
-	# ファイルのダウンロードがエラーになった場合
-	if [ -n "${error}" ]
-	then
-		echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not download ${key} from S3." >> ${ERROR_LOG_FILE}
-		echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」${error}" >> ${ERROR_LOG_FILE}
+        # ファイルのダウンロードがエラーになった場合
+        if [ -n "${error}" ]
+        then
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not download ${key} from S3." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 
-		continue
-	fi
+                continue
+        fi
 
-	# ダウンロードに成功した場合は、一度検出したメッセージIDを残しておく（重複検出用）
-	echo ${id} >> ${SQS_DUPLICATE_ID_LIST}
+        # ダウンロードに成功した場合は、一度検出したメッセージIDを残しておく（重複検出用）
+        echo ${id} >> ${SQS_DUPLICATE_ID_LIST}
 
 	# ダウンロード対象ファイルが取得できた場合はループを抜ける
 	is_download_ok=1
@@ -244,17 +244,17 @@ upload_files=`find ${ZIP_DIR_U} -type f`
 for upload_file in ${upload_files}
 do
 	key=${upload_file##*/}
-	md5cs=`openssl md5 -binary ${zippath} | base64`
-	error=`aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
+        md5cs=`openssl md5 -binary ${zippath} | base64`
+        error=`aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
-	if [ -n "${error}" ]
-	then
+        if [ -n "${error}" ]
+        then
 		delextension=${key/${EXT_ZIP}/}
-		originalpath=${delextension//-/\/}
-		echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not upload ${upload_file} to S3." >> ${ERROR_LOG_FILE}
-		echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」${error}" >> ${ERROR_LOG_FILE}
+                originalpath=${delextension//-/\/}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」Could not upload ${upload_file} to S3." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Send bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 	else
 		# 送信済みZIPファイルの削除
 		rm ${uplaod_file}
-	fi
+        fi
 done
