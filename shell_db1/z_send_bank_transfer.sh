@@ -177,7 +177,7 @@ n=${key%-*}
 network_type=${n##*-}
 
 # ISDN接続
-start_exit_code=`/usr/local/bin/bankconnect.sh ${network_type} start`
+start_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} start`
 
 # .zip拡張子を取り除いたファイル名（スラッシュがハイフンになっている状態）
 delextension=${key/.-/-}
@@ -193,7 +193,7 @@ then
         transfer_setting_file_name=`ls ${dir_path} | grep .ini`
 
         # 全銀ミドル実行
-        z_result=`/usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
+        z_result=`sudo /usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
         z_result_code=$?
 
         # zclient標準出力と終了コードを結果ファイルに書込み
