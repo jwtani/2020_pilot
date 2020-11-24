@@ -62,13 +62,13 @@ is_download_ok=0
 # ダウンロード対象のファイル名
 key=""
 
-# ディレクトリのパス
-dir_parh=""
-
-attributes=`aws sqs get-queue-attributes --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER}`
+attributes=`aws sqs get-queue-attributes --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
 
 # タブ文字で区切り、一番最後にある要素を取得（キューに存在するメッセージの個数）
-msg_count=${attributes##*       }
+msg_count=`echo ${attributes} | jq '.Attributes | .ApproximateNumberOfMessages'`
+msg_count=${msg_count//\"}
+
+echo 受信したメッセージ数 = $msg_count
 
 for ((i=0; i<${msg_count}; i++))
 do
@@ -81,14 +81,15 @@ do
         # 3: MD5
         # 4: ID
         # 5: ReceiptHandle
-        message=`aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER}`
-        msgAttr=(${message//    / })
+        message=`aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
 
-        header=${msgAttr[0]}
-        body=${msgAttr[1]}
-        md5=${msgAttr[2]}
-        id=${msgAttr[3]}
-        receiptHandle=${msgAttr[4]}
+	# メッセージID
+	id=`echo ${message} | jq '.Messages[] | .MessageId'`
+	id=${id//\"}
+
+	# メッセージ本文
+	body=`echo ${message} | jq '.Messages[] | .Body'`
+	body=${body//\"}
 
         # 重複したIDかどうかチェック
         cat ${SQS_DUPLICATE_ID_LIST} | while read received_id
@@ -115,14 +116,8 @@ do
         # ダウンロード対象のファイル名
         key=${body}
 
-        # .zip拡張子を取り除いたファイル名（スラッシュがハイフンになっている状態）
-        delextension=${key/${EXT_ZIP}/}
-
-        # ディレクトリのパス
-        dir_path=${delextension//-/\/}
-
         # S3よりファイルのダウンロード
-        error=`aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
+        error=`aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
         # ファイルのダウンロードがエラーになった場合
         if [ -n "${error}" ]
@@ -148,7 +143,7 @@ then
 fi
 
 md5cs=`openssl md5 -binary ${ZIP_DIR_D}${key} | base64`
-aws_md5cs=`aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} | jq -r '.md5checksum'`
+aws_md5cs=`aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} --region ap-northeast-1 | jq -r '.md5checksum'`
 
 # MD5チェックサム値比較で整合性エラーになった場合
 if [ ${md5cs} != ${aws_md5cs} ]
@@ -167,7 +162,7 @@ fi
 unzip -o -P 3z061119 ${ZIP_DIR_D}${key} -d /
 
 # S3のファイル削除
-error=`aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
+error=`aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
 # S3のファイル削除でエラーになった場合
 if [ -n "${error}" ]
@@ -181,7 +176,14 @@ n=${key%-*}
 network_type=${n##*-}
 
 # ISDN接続
-start_exit_code=`bankconnect.sh ${network_type} start`
+start_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} start`
+
+# .zip拡張子を取り除いたファイル名（スラッシュがハイフンになっている状態）
+delextension=${key/.-/-}
+delextension=${delextension/${EXT_ZIP}/}
+
+# ディレクトリのパス
+dir_path=${delextension//-/\/}
 
 # ISDN接続に成功したか
 if [ ${start_exit_code} = 0 ]
@@ -190,14 +192,13 @@ then
 	transfer_setting_file_name=`ls ${dir_path} | grep .ini`
 
 	# 全銀ミドル実行
-	z_result=`/usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
+	z_result=`sudo /usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
 	z_result_code=$?
 
 	# zclient標準出力と終了コードを結果ファイルに書込み
 	echo 0 >> ${dir_path}${RESULT_FILE_NAME}
 	echo z_result_code >> ${dir_path}${RESULT_FILE_NAME}
 	echo z_result >> ${dir_path}${RESULT_FILE_NAME}
-
 else
 	# ISDN接続に失敗した場合
 	echo 1 >> ${dir_path}${RESULT_FILE_NAME}
@@ -228,7 +229,7 @@ then
 fi
 
 # ISDN切断
-stop_exit_code=`bankconnect.sh ${network_type} stop`
+stop_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} stop`
 
 if [ ${stop_exit_code} != 0 ]
 then
@@ -243,13 +244,13 @@ for upload_file in ${upload_files}
 do
 	key=${upload_file##*/}
         md5cs=`openssl md5 -binary ${zippath} | base64`
-        error=`aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${ms5cs} 2>&1 >/dev/null`
+        error=`aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
         if [ -n "${error}" ]
         then
 		delextension=${key/${EXT_ZIP}/}
                 originalpath=${delextension//-/\/}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not upload ${originalpath} to S3." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」Could not upload ${upload_file} to S3." >> ${ERROR_LOG_FILE}
                 echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 	else
 		# 送信済みZIPファイルの削除
