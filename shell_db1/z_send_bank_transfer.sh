@@ -230,7 +230,7 @@ then
 fi
 
 # ISDN切断
-stop_exit_code=`bankconnect.sh ${network_type} stop`
+stop_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} stop`
 
 if [ ${stop_exit_code} != 0 ]
 then
