@@ -1,5 +1,5 @@
 //イベントハンドラ（メイン）
-exports.handler = async (event, context) => {
+exports.handler = async (event, context, callback) => {
   // key（アップロードのイベントがあったファイル名）
   var key = event.Records[0].s3.object.key;
   
@@ -7,4 +7,6 @@ exports.handler = async (event, context) => {
   
   // SQSメッセージのキューイング
   sqs.queueing(key);
+  
+  callback(null, 'Message queueing process end.');
 };
