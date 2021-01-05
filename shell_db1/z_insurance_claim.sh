@@ -8,7 +8,7 @@
 SEARCH_MIN=1
 
 # ZIP化したファイルの一時配置場所
-ZIP_DIR=/home/jw/jmc_upload/tmp/
+ZIP_DIR=/home/jw/jmc_upload/ins_clm/
 
 # ZIP拡張子
 EXT_ZIP=".zip"
@@ -53,7 +53,7 @@ for uploadfile in $uploadfiles
 do
         key=${uploadfile##*/}
         md5cs=`openssl md5 -binary ${uploadfile} | base64`
-        error=`aws s3api put-object --bucket ${BUCKET_NAME} --key .${key} --body ${uploadfile} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
+        error=`/usr/local/bin/aws s3api put-object --bucket ${BUCKET_NAME} --key .${key} --body ${uploadfile} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
 
         # 送信エラーになった場合
         if [ -n "${error}" ]

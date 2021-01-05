@@ -17,10 +17,10 @@ BUCKET_NAME_U="zop-prod-to-ec2"
 AWSCLI_USER="data-linkage"
 
 # ZIP化したファイルの一時配置場所（ダウンロード時）
-ZIP_DIR_D=/home/jw/jmc_download/tmp/
+ZIP_DIR_D=/home/jw/jmc_download/receive_trans/
 
 # ZIP化したファイルの一時配置場所（アップロード時）
-ZIP_DIR_U=/home/jw/jmc_upload/tmp/
+ZIP_DIR_U=/home/jw/jmc_upload/receive_trans/
 
 # ZIP拡張子
 EXT_ZIP=".zip"
@@ -62,13 +62,16 @@ is_download_ok=0
 # ダウンロード対象のファイル名
 key=""
 
-attributes=`aws sqs get-queue-attributes --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
+attributes=`/usr/local/bin/aws sqs get-queue-attributes --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
 
 # タブ文字で区切り、一番最後にある要素を取得（キューに存在するメッセージの個数）
 msg_count=`echo ${attributes} | jq '.Attributes | .ApproximateNumberOfMessages'`
-msg_count=${msg_count//\"}
-
-echo 受信したメッセージ数 = $msg_count
+if [ ${msg_count} = "" ]
+then
+	msg_count=0
+else
+	msg_count=${msg_count//\"}
+fi
 
 for ((i=0; i<${msg_count}; i++))
 do
@@ -81,7 +84,7 @@ do
         # 3: MD5
         # 4: ID
         # 5: ReceiptHandle
-        message=`aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
+        message=`/usr/local/bin/aws sqs receive-message --queue-url ${SQS_QUEUE} --attribute-names ApproximateNumberOfMessages --profile ${AWSCLI_USER} --region ap-northeast-1`
 
 	# メッセージID
 	id=`echo ${message} | jq '.Messages[] | .MessageId'`
@@ -91,24 +94,25 @@ do
 	body=`echo ${message} | jq '.Messages[] | .Body'`
 	body=${body//\"}
 
-        # 重複したIDかどうかチェック
-        cat ${SQS_DUPLICATE_ID_LIST} | while read received_id
-        do
-                if [ ${id} = ${received_id} ]
-                then
-                        is_duplicate=1
-                        break
-                fi
-        done
-
-        # IDが重複していた場合は処理をしない
-        if [ ${is_duplicate} = 1 ]
+        # 銀行振替結果取込のファイルでなければスルー
+        if [ ! `echo ${body} | grep 'bank_result'` ]
         then
                 continue
         fi
 
-        # 銀行振替結果取込のファイルでなければスルー
-        if [ ! `echo $body | grep 'bank_result'` ]
+	id_list=(`cat ${SQS_DUPLICATE_ID_LIST}`)
+	for received_id in "${id_list[@]}"
+	do
+        	# 重複したIDかどうかチェック
+		if [ "${id}" = "${received_id}" ]
+		then
+			is_duplicate=1
+			break
+		fi
+	done
+
+        # IDが重複していた場合は処理をしない
+        if [ ${is_duplicate} = 1 ]
         then
                 continue
         fi
@@ -117,7 +121,7 @@ do
         key=${body}
 
         # S3よりファイルのダウンロード
-        error=`aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
+        error=`/usr/local/bin/aws s3 cp s3://${BUCKET_NAME_D}/${key} ${ZIP_DIR_D} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
         # ファイルのダウンロードがエラーになった場合
         if [ -n "${error}" ]
@@ -133,7 +137,7 @@ do
 
 	# ダウンロード対象ファイルが取得できた場合はループを抜ける
 	is_download_ok=1
-	break;
+	break
 done
 
 # ダウンロード対象ファイルが取得できなかった場合は処理終了
@@ -143,7 +147,7 @@ then
 fi
 
 md5cs=`openssl md5 -binary ${ZIP_DIR_D}${key} | base64`
-aws_md5cs=`aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} --region ap-northeast-1 | jq -r '.md5checksum'`
+aws_md5cs=`/usr/local/bin/aws s3api head-object --bucket ${BUCKET_NAME_D} --key ${key} --query 'Metadata' --profile ${AWSCLI_USER} --region ap-northeast-1 | jq -r '.md5checksum'`
 
 # MD5チェックサム値比較で整合性エラーになった場合
 if [ ${md5cs} != ${aws_md5cs} ]
@@ -162,7 +166,7 @@ fi
 unzip -o -P 3z061119 ${ZIP_DIR_D}${key} -d /
 
 # S3のファイル削除
-error=`aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
+error=`/usr/local/bin/aws s3 rm s3://${BUCKET_NAME_D}/${key} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
 # S3のファイル削除でエラーになった場合
 if [ -n "${error}" ]
@@ -171,12 +175,16 @@ then
 	echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 fi
 
+# ダウンロードしたZIPファイルを削除（解凍済み）
+rm ${ZIP_DIR_D}${key}
+
 # ネットワーク種別をzipファイル名から判別
 n=${key%-*}
 network_type=${n##*-}
 
 # ISDN接続
-start_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} start`
+sudo /usr/local/bin/bankconnect.sh ${network_type} start
+start_exit_code=$?
 
 # .zip拡張子を取り除いたファイル名（スラッシュがハイフンになっている状態）
 delextension=${key/.-/-}
@@ -195,10 +203,13 @@ then
 	z_result=`sudo /usr/local/zhostd/zclient ${dir_path}${transfer_setting_file_name}`
 	z_result_code=$?
 
+	# 標準出力結果の通信終了ステータスのみを切り取り
+	z_result=`echo ${z_result} | awk '{print substr($0, index($0, "99-"))}'`
+
 	# zclient標準出力と終了コードを結果ファイルに書込み
 	echo 0 >> ${dir_path}${RESULT_FILE_NAME}
-	echo z_result_code >> ${dir_path}${RESULT_FILE_NAME}
-	echo z_result >> ${dir_path}${RESULT_FILE_NAME}
+	echo ${z_result_code} >> ${dir_path}${RESULT_FILE_NAME}
+	echo ${z_result} >> ${dir_path}${RESULT_FILE_NAME}
 else
 	# ISDN接続に失敗した場合
 	echo 1 >> ${dir_path}${RESULT_FILE_NAME}
@@ -217,19 +228,20 @@ rm ${dir_path}${RESULT_FILE_NAME}
 
 if [ ${start_exit_code} = 0 ]
 then
-	# 送信済み用のディレクトリ（無ければ作成）
-	ok_dir_path=${dir_path/bank_result/bank_result_ok}
-	if [ ! -e ${ok_dir_path} ]
-	then
-		mkdir -p ${ok_dir_path}
-	fi
+	# 送信済み用のディレクトリ作成
+	ok_dir_path=${dir_path/jmc_w_bank/jmc_w_history}
+	ok_dir_path=${ok_dir_path/bank_result/bank_result_ok}
+	dir_timestamp=`date +%Y%m%d_%H%M%S%3N`
+	ok_dir_path=${ok_dir_path}${dir_timestamp}
+	mkdir -p ${ok_dir_path}
 
 	# 送信済み用のディレクトリへファイル移動
 	mv ${dir_path}* ${ok_dir_path}
 fi
 
 # ISDN切断
-stop_exit_code=`sudo /usr/local/bin/bankconnect.sh ${network_type} stop`
+sudo /usr/local/bin/bankconnect.sh ${network_type} stop
+stop_exit_code=$?
 
 if [ ${stop_exit_code} != 0 ]
 then
@@ -244,7 +256,7 @@ for upload_file in ${upload_files}
 do
 	key=${upload_file##*/}
         md5cs=`openssl md5 -binary ${zippath} | base64`
-        error=`aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
+        error=`/usr/local/bin/aws s3api put-object --bucket ${BUCKET_NAME_U} --key .${key} --body ${zippath} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} --region ap-northeast-1 2>&1 >/dev/null`
 
         if [ -n "${error}" ]
         then
@@ -254,6 +266,6 @@ do
                 echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Receive bank transfer data」${error}" >> ${ERROR_LOG_FILE}
 	else
 		# 送信済みZIPファイルの削除
-		rm ${uplaod_file}
+		rm ${upload_file}
         fi
 done
