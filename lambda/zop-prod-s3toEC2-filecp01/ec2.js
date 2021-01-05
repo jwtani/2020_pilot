@@ -12,11 +12,11 @@ exports.download = async function(bucket, key) {
   var commands = [
 `\
 if [ ! -e ${dir} ]; then \
-mkdir -p ${dir}; \
+sudo -u tomcat mkdir -p ${dir}; \
 fi \
 `,
 
-`error=\`aws s3 cp s3://${bucket}/${key} ${dir} 2>&1 >/dev/null\``,
+`error=\`sudo -u tomcat aws s3 cp s3://${bucket}/${key} ${dir} 2>&1 >/dev/null\``,
 
 `\
 if [ -n "\${error}" ]; then \
@@ -25,8 +25,8 @@ echo "[\`date '+%Y/%m/%d %H:%M:%S'\`] \${error}" >> ${errorlog}; \
 else \
 md5cs=\`openssl md5 -binary ${dir}${key} | base64\`; \
 aws_md5cs=\`aws s3api head-object --bucket ${bucket} --key ${key} --query 'Metadata' | jq -r '.md5checksum'\`; \
-if [ \${md5cs} = \${aws_md5cs} ]; then \
-unzip -o -P 3z061119 ${dir}${key} -d /; \
+if [ "\${md5cs}" = "\${aws_md5cs}" ]; then \
+sudo -u tomcat unzip -o -P 3z061119 ${dir}${key} -d /; \
 aws s3 rm s3://${bucket}/${key}; \
 else \
 echo "[\`date '+%Y/%m/%d %H:%M:%S'\`] Faild to download ${key} from S3." >> ${errorlog}; \
