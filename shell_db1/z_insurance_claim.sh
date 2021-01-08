@@ -5,7 +5,7 @@
 #
 
 # 何分前に更新されたファイルをアップロード対象とするか(3を設定すれば3分前から現在までに更新されたファイルを対象とする）
-SEARCH_MIN=1
+SEARCH_MIN=2
 
 # ZIP化したファイルの一時配置場所
 ZIP_DIR=/home/jw/jmc_upload/ins_clm/
