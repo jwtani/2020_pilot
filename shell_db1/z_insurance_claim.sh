@@ -8,7 +8,7 @@
 SEARCH_MIN=1
 
 # ZIP化したファイルの一時配置場所
-ZIP_DIR=/home/jw/jmc_upload/tmp/
+ZIP_DIR=/home/jw/jmc_upload/ins_clm/
 
 # ZIP拡張子
 EXT_ZIP=".zip"
@@ -45,6 +45,19 @@ do
         # ファイルのZIP化
         zippath="${ZIP_DIR}${target//\//-}${EXT_ZIP}"
         zip -er --password=3z061119 ${zippath} ${target}
+
+	# 送信済み用のディレクトリへファイル移動
+	ok_dir_path=${target/jmc_w_ins_cmt/jmc_w_history}
+	ym=${ok_dir_path%/*}
+	ym=${ym##*/}
+	ok_dir_path=${ok_dir_path%/*}
+	ok_dir_path=${ok_dir_path%/*}
+	dir_timestamp=`date +%Y%m%d_%H%M%S`
+	ok_dir_path=${ok_dir_path}/insurance/${ym}/${dir_timestamp}/
+	mkdir -p ${ok_dir_path}
+
+	# 送信済み用のディレクトリへファイル移動
+	sudo mv ${target} ${ok_dir_path}
 done
 
 # S3へのファイルアップロード
@@ -53,7 +66,7 @@ for uploadfile in $uploadfiles
 do
         key=${uploadfile##*/}
         md5cs=`openssl md5 -binary ${uploadfile} | base64`
-        error=`aws s3api put-object --bucket ${BUCKET_NAME} --key .${key} --body ${uploadfile} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
+        error=`/usr/local/bin/aws s3api put-object --bucket ${BUCKET_NAME} --key .${key} --body ${uploadfile} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${AWSCLI_USER} 2>&1 >/dev/null`
 
         # 送信エラーになった場合
         if [ -n "${error}" ]
