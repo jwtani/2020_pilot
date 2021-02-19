@@ -4,9 +4,6 @@
 # 保険請求データ取込バッチ用のシェルスクリプト
 #
 
-# 何分前に更新されたファイルをアップロード対象とするか(3を設定すれば3分前から現在までに更新されたファイルを対象とする）
-SEARCH_MIN=1
-
 # ZIP化したファイルの一時配置場所
 ZIP_DIR=/home/jw/jmc_upload/ins_clm/
 
@@ -39,12 +36,25 @@ then
         mkdir -p ${ZIP_DIR}
 fi
 
-targets=`find /data/jmc/jmc_w_ins_cmt/ -type f -mmin -${SEARCH_MIN}`
+targets=`find /data/jmc/jmc_w_ins_cmt/ -type f`
 for target in $targets
 do
         # ファイルのZIP化
         zippath="${ZIP_DIR}${target//\//-}${EXT_ZIP}"
         zip -er --password=3z061119 ${zippath} ${target}
+
+	# 送信済み用のディレクトリへファイル移動
+	ok_dir_path=${target/jmc_w_ins_cmt/jmc_w_history}
+	ym=${ok_dir_path%/*}
+	ym=${ym##*/}
+	ok_dir_path=${ok_dir_path%/*}
+	ok_dir_path=${ok_dir_path%/*}
+	dir_timestamp=`date +%Y%m%d_%H%M%S`
+	ok_dir_path=${ok_dir_path}/insurance/${ym}/${dir_timestamp}/
+	mkdir -p ${ok_dir_path}
+
+	# 送信済み用のディレクトリへファイル移動
+	sudo mv ${target} ${ok_dir_path}
 done
 
 # S3へのファイルアップロード
