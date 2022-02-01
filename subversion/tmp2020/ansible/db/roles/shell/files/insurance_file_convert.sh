@@ -5,7 +5,7 @@ TRANS_DIR=${BASE_DIR}/jmc_w_ins_trans
 
 DAIDO=00001
 
-for FILE in `\find $TRANS_DIR -name '*_*.txt'`; do
+for FILE in `\find $TRANS_DIR -regextype posix-basic -regex '.*/[0-9]\{5\}_[0-9]\{4\}.txt$'`; do
 
   MONTH=`echo $FILE | cut -d"/" -f5`
   INSNO=`echo $FILE | cut -d"/" -f6`
