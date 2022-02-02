@@ -4,6 +4,12 @@
 # 保険請求データ取込バッチ用のシェルスクリプト
 #
 
+# 自分自身が既にcronで実行されている時は処理を終了する
+exec_command=$(cat /proc/$$/cmdline | xargs --null)
+if [ $$ -ne $(pgrep -oxf "${exec_command}") ]; then
+	exit 1
+fi
+
 . ./lib/common_aws_func.sh
 
 # ZIP化したファイルの一時配置場所
@@ -78,3 +84,5 @@ do
 		rm ${upload_file}
         fi
 done
+
+exit 0
