@@ -33,20 +33,17 @@ ERROR_LOG_FILE=${ERROR_LOG_DIR}/error.log
 #####################################################################################################
 
 # エラーログ出力先が無ければ作成
-if [ ! -e ${ERROR_LOG_DIR} ]
-then
+if [ ! -e ${ERROR_LOG_DIR} ]; then
         mkdir ${ERROR_LOG_DIR}
 fi
 
 # zipファイルの一時格納先ディレクトリが無かったら作成
-if [ ! -e ${ZIP_DIR} ]
-then
+if [ ! -e ${ZIP_DIR} ]; then
         mkdir -p ${ZIP_DIR}
 fi
 
 targets=`find /data/jmc/jmc_w_ins_cmt -regextype posix-basic -regex '^/data/jmc/jmc_w_ins_cmt/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
-for target in $targets
-do
+for target in $targets; do
         # ファイルのZIP化
         zip_path="${ZIP_DIR}/${target//\//-}${EXT_ZIP}"
         zip -er --password=3z061119 ${zip_path} ${target}
@@ -67,18 +64,17 @@ done
 
 # S3へのファイルアップロード
 upload_files=`find ${ZIP_DIR} -type f`
-for upload_file in $upload_files
-do
+for upload_file in $upload_files; do
         key=.${upload_file##*/}
-	error=$(s3upload ${upload_file} ${key} ${BUCKET_NAME} ${AWSCLI_USER})
-	code=$?
+	return_error=$(s3upload ${upload_file} ${key} ${BUCKET_NAME} ${AWSCLI_USER})
+	return_code=$?
 
         # 送信エラーになった場合
-        if [ ${code} -ne 0 ]; then
+        if [ ${return_code} -ne 0 ]; then
                 delextension=${key/${EXT_ZIP}/}
                 originalpath=${delextension//-/\/}
                 echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」Could not upload ${originalpath} to S3." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」${error}" >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」${return_error}" >> ${ERROR_LOG_FILE}
 	else
 		# 送信済みZIPファイルの削除
 		rm ${upload_file}
