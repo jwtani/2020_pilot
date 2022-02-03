@@ -44,7 +44,7 @@ then
         mkdir -p ${ZIP_DIR}
 fi
 
-targets=`find /data/jmc/jmc_w_ins_cmt -regextype posix-basic -regex '.*/[0-9]\{4\}.txt$'`
+targets=`find /data/jmc/jmc_w_ins_cmt -regextype posix-basic -regex '^/data/jmc/jmc_w_ins_cmt/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
 for target in $targets
 do
         # ファイルのZIP化
