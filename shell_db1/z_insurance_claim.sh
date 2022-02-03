@@ -62,7 +62,7 @@ do
 	mkdir -p ${ok_dir_path}
 
 	# 送信済み用のディレクトリへファイル移動
-	sudo mv ${target} ${ok_dir_path}
+	mv ${target} ${ok_dir_path}
 done
 
 # S3へのファイルアップロード
