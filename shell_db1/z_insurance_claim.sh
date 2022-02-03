@@ -10,7 +10,7 @@ if [ $$ -ne $(pgrep -oxf "${exec_command}") ]; then
 	exit 1
 fi
 
-. ./lib/common_aws_func.sh
+. $(cd $(dirname $0) && pwd)/func.d/s3_functions
 
 # ZIP化したファイルの一時配置場所
 ZIP_DIR=/home/jw/jmc_upload/ins_clm
@@ -70,7 +70,7 @@ upload_files=`find ${ZIP_DIR} -type f`
 for upload_file in $upload_files
 do
         key=.${upload_file##*/}
-	error=$(s3_upload ${upload_file} ${key} ${BUCKET_NAME} ${AWSCLI_USER})
+	error=$(s3upload ${upload_file} ${key} ${BUCKET_NAME} ${AWSCLI_USER})
 	code=$?
 
         # 送信エラーになった場合

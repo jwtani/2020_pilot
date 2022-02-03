@@ -1,58 +1,68 @@
-#!/bin/sh
+# -*-Shell-script-*-
+#
+# s3_functions This file contains functions that are called when using Amazon S3
+#       in shell scripts in the /home/jw/data-linkage directory.
+#
 
-#
-# AWS関連の共通関数
-#
+# Set up a default search path.
+PATH="/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
+export PATH
 
 # AmazonS3アップロード
-function s3_upload() {
+function s3upload() {
+    # 第１引数：アップロード対象ファイル
+    local target_file=$1
+
+    # 第２引数：S3アップロード後のファイルkey
+    local s3_key=$2
+
+    # 第３引数：S3バケット名
+    local bucket_name=$3
+
+    # 第４引数：コマンドを実行するプロファイル
+    local profile=$4
+
+    # 対象ファイルのMD5ハッシュ値
+    local hash_value
+
+    # 直前のコマンド終了ステータス
+    local return_code=0
+
     # エラー：引数の数が４以外
     if [ $# -ne 4 ]; then
-        echo ERROR: Invalid argument count. Specify four arguments. \<TARGET_FILE\> \<S3_KEY\> \<BUCKET_NAME\> \<PROFILE\>
+        echo ERROR: Invalid argument count. Specify four arguments. \<target_file\> \<s3_key\> \<bucket_name\> \<profile\>
         exit 1
     fi
 
-    # 第１引数：アップロード対象ファイル
-    TARGET_FILE=$1
-
-    # 第２引数：S3アップロード後のファイルkey
-    S3_KEY=$2
-
-    # 第３引数：S3バケット名
-    BUCKET_NAME=$3
-
-    # 第４引数：コマンドを実行するプロファイル
-    PROFILE=$4
-
     # エラー：存在しないファイル
-    if [ ! -e ${TARGET_FILE} ]; then
-        echo ERROR: ${TARGET_FILE} is not found. Please specify a valid file path.
+    if [ ! -e ${target_file} ]; then
+        echo ERROR: ${target_file} is not found. Please specify a valid file path.
         exit 1
     fi
 
     # エラー：ディレクトリが指定された
-    if [ -d ${TARGET_FILE} ]; then
-        echo ERROR: ${TARGET_FILE} is directory. Please specify a valid file path.
+    if [ -d ${target_file} ]; then
+        echo ERROR: ${target_file} is directory. Please specify a valid file path.
         exit 1
     fi
 
     # 対象ファイルのMD5ハッシュ値を取得
-    md5cs=`openssl md5 -binary ${TARGET_FILE} | base64`
-    code=$?
+    hash_value=`openssl md5 -binary ${target_file} | base64`
+    return_code=$?
 
     # エラー：MD5ハッシュ値取得に失敗
-    if [ ${code} -ne 0 ]; then
-        echo ERROR: Faild to get ${TARGET_FILE} md5checksum.
+    if [ ${return_code} -ne 0 ]; then
+        echo ERROR: Faild to get ${target_file} md5checksum.
         exit 1
     fi
 
     # S3へアップロード
-    error=`/usr/local/bin/aws s3api put-object --bucket ${BUCKET_NAME} --key ${S3_KEY} --body ${TARGET_FILE} --content-md5 ${md5cs} --metadata md5checksum=${md5cs} --profile ${PROFILE} 2>&1 >/dev/null`
-    code=$?
+    return_error=`aws s3api put-object --bucket ${bucket_name} --key ${s3_key} --body ${target_file} --content-md5 ${hash_value} --metadata md5checksum=${hash_value} --profile ${profile} 2>&1 >/dev/null`
+    return_code=$?
 
     # エラー：S3へのファイルアップロードに失敗
-    if [ ${code} -ne 0 ]; then
-        echo ${error}
+    if [ ${return_code} -ne 0 ]; then
+        echo ${return_error}
         exit 1
     fi 
 
@@ -60,7 +70,7 @@ function s3_upload() {
 }
 
 # AmazonS3ダウンロード
-function s3_download() {
+function s3download() {
     echo This is Amazon S3 download function. [Coming soon]
     exit 0
 }
