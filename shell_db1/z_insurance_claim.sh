@@ -42,7 +42,8 @@ if [ ! -e ${ZIP_DIR} ]; then
         mkdir -p ${ZIP_DIR}
 fi
 
-targets=`find /data/jmc/jmc_w_ins_cmt -regextype posix-basic -regex '^/data/jmc/jmc_w_ins_cmt/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
+search_dir=/data/jmc/jmc_w_ins_cmt
+targets=`find ${search_dir} -regextype posix-basic -regex '^'${search_dir}'/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
 for target in $targets; do
         # ファイルのZIP化
         zip_path="${ZIP_DIR}/${target//\//-}${EXT_ZIP}"
