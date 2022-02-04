@@ -4,7 +4,6 @@
 #       in shell scripts in the /home/jw/data-linkage directory.
 #
 
-# Set up a default search path.
 PATH="/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
 export PATH
 

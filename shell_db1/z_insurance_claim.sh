@@ -5,8 +5,8 @@
 #
 
 # 自分自身が既にcronで実行されている時は処理を終了する
-exec_command=$(cat /proc/$$/cmdline | xargs --null)
-if [ $$ -ne $(pgrep -oxf "${exec_command}") ]; then
+ps_count=`ps aux | pgrep -xfc '^((/bin/bash )|/|\./)[^ ]*/'$(basename $0)'$'`
+if [ ${ps_count} -gt 1 ]; then
 	exit 1
 fi
 
