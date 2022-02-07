@@ -58,8 +58,16 @@ send_mail_insurance() {
 file_trans_cp932 ${INS_CODE} ${CHAR_CODE}
 return_code=$?
 
+if [ ${return_code} -ne 0 ]; then
+    exit ${return_code}
+fi
+
 send_mail_insurance ${TO_ADDR} ${INS_CODE}
 return_code=$?
+
+if [ ${return_code} -ne 0 ]; then
+    exit ${return_code}
+fi
 
 exit 0
 
