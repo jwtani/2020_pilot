@@ -30,19 +30,19 @@ function s3upload() {
     # エラー：引数の数が４以外
     if [ $# -ne 4 ]; then
         echo ERROR: Invalid argument count. Specify four arguments. \<target_file\> \<s3_key\> \<bucket_name\> \<profile\>
-        exit 1
+        return 1
     fi
 
     # エラー：存在しないファイル
     if [ ! -e ${target_file} ]; then
         echo ERROR: ${target_file} is not found. Please specify a valid file path.
-        exit 1
+        return 1
     fi
 
     # エラー：ディレクトリが指定された
     if [ -d ${target_file} ]; then
         echo ERROR: ${target_file} is directory. Please specify a valid file path.
-        exit 1
+        return 1
     fi
 
     # 対象ファイルのMD5ハッシュ値を取得
@@ -52,7 +52,7 @@ function s3upload() {
     # エラー：MD5ハッシュ値取得に失敗
     if [ ${return_code} -ne 0 ]; then
         echo ERROR: Faild to get ${target_file} md5checksum.
-        exit 1
+        return 1
     fi
 
     # S3へアップロード
@@ -62,14 +62,14 @@ function s3upload() {
     # エラー：S3へのファイルアップロードに失敗
     if [ ${return_code} -ne 0 ]; then
         echo ${return_error}
-        exit 1
+        return 1
     fi 
 
-    exit 0
+    return 0
 }
 
 # AmazonS3ダウンロード
 function s3download() {
     echo This is Amazon S3 download function. [Coming soon]
-    exit 0
+    return 0
 }

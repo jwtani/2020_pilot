@@ -12,8 +12,8 @@ function check_multiple() {
     # 既に起動中ならエラー終了
     if [ ${ps_count} -gt 3 ]; then
         echo This process is already running. ${ps_count}
-        exit 1
+        return 1
     fi
 
-    exit 0
+    return 0
 }
