@@ -25,12 +25,15 @@ file_trans_cp932() {
     case "${charcode}" in
         ebcdic)
             iconv -f IBM930 -t UTF-8 ${infile} | nkf -x --windows > ${tmpfile}
+            return $?
             ;;
         ebcdic_old)
             iconv -f EBCDIC-JP-KANA -t UTF-8 ${infile} | nkf -s > ${tmpfile}
+            return $?
             ;;
         *)
             cp ${infile} ${tmpfile}
+            return $?
             ;;
     esac
 }
@@ -53,6 +56,10 @@ send_mail_insurance() {
 }
 
 file_trans_cp932 ${INS_CODE} ${CHAR_CODE}
+return_code=$?
 
 send_mail_insurance ${TO_ADDR} ${INS_CODE}
+return_code=$?
+
+exit 0
 
