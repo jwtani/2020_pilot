@@ -9,63 +9,73 @@ export PATH
 
 # AmazonS3アップロード
 function s3upload() {
-    # 第１引数：アップロード対象ファイル
-    local target_file=$1
-
-    # 第２引数：S3アップロード後のファイルkey
-    local s3_key=$2
-
-    # 第３引数：S3バケット名
-    local bucket_name=$3
-
-    # 第４引数：コマンドを実行するプロファイル
-    local profile=$4
-
-    # 対象ファイルのMD5ハッシュ値
+    local bucket=$1
+    local key=$2
+    local data=$3
     local hash_value
-
-    # 直前のコマンド終了ステータス
     local return_code=0
 
-    # エラー：引数の数が４以外
-    if [ $# -ne 4 ]; then
-        echo ERROR: Invalid argument count. Specify four arguments. \<target_file\> \<s3_key\> \<bucket_name\> \<profile\>
+    # エラー：引数の数が３以外
+    if [ $# -ne 3 ]; then
+        echo ERROR: Invalid argument count. Specify four arguments. \<bucket\> \<key\> \<data\>
         return 1
     fi
 
-    # エラー：存在しないファイル
-    if [ ! -e ${target_file} ]; then
-        echo ERROR: ${target_file} is not found. Please specify a valid file path.
-        return 1
-    fi
-
-    # エラー：ディレクトリが指定された
-    if [ -d ${target_file} ]; then
-        echo ERROR: ${target_file} is directory. Please specify a valid file path.
+    # エラー：アップロード対象が存在しない
+    if [ ! -e ${data} ]; then
+        echo ERROR: ${data} is not found. Please specify a valid file path.
         return 1
     fi
 
     # 対象ファイルのMD5ハッシュ値を取得
-    hash_value=`openssl md5 -binary ${target_file} | base64`
-    return_code=$?
+    hash_value=`openssl md5 -binary ${data} | base64`
 
     # エラー：MD5ハッシュ値取得に失敗
-    if [ ${return_code} -ne 0 ]; then
-        echo ERROR: Faild to get ${target_file} md5checksum.
+    if [ $? -ne 0 ]; then
+        echo ERROR: Faild to get ${data} md5checksum.
         return 1
     fi
 
     # S3へアップロード
-    return_error=`aws s3api put-object --bucket ${bucket_name} --key ${s3_key} --body ${target_file} --content-md5 ${hash_value} --metadata md5checksum=${hash_value} --profile ${profile} 2>&1 >/dev/null`
-    return_code=$?
+    # エラーのみ出力
+    aws s3api put-object --bucket ${bucket} --key ${key} --body ${data} \
+        --content-md5 ${hash_value} \
+        --metadata md5checksum=${hash_value} \
+        2>&1 1>/dev/null
 
-    # エラー：S3へのファイルアップロードに失敗
-    if [ ${return_code} -ne 0 ]; then
-        echo ${return_error}
+    return $?
+}
+
+# AmazonS3アップロード（AES256暗号化）
+s3upload_aes256() {
+    local bucket=$1
+    local key=$2
+    local data=$3
+    local pass=$4
+    local debug
+
+    # エラー：引数の数が３以外
+    if [ $# -ne 4 ]; then
+        echo ERROR: Invalid argument count. Specify four arguments. \<bucket\> \<key\> \<data\> \<pass\>
         return 1
-    fi 
+    fi
 
-    return 0
+    # エラー：アップロード対象が存在しない
+    if [ ! -e ${data} ]; then
+        echo ERROR: ${data} is not found. Please specify a valid file path.
+        return 1
+    fi
+
+    # エラーのみ出力
+    # --debugをつけると詳細エラー出力
+    debug=""
+    #debug="--debug"
+    aws s3api put-object --bucket ${bucket} --key ${key} --body ${data} \
+        --content-md5 `openssl md5 -binary ${data} | base64` \
+        --sse-customer-algorithm AES256 \
+        --sse-customer-key ${pass} ${debug} 2>&1 1>/dev/null
+
+    return $?
 }
 
 # AmazonS3ダウンロード

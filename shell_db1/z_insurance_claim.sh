@@ -1,5 +1,5 @@
 #!/bin/bash
-set -u
+#set -u
 
 #
 # 保険請求データ取込バッチ用のシェルスクリプト
@@ -16,6 +16,10 @@ if [ ${return_code} -ne 0 ]; then
 	echo ${return_error}
 	exit 1
 fi
+
+# 第１引数：S3へのアップロード種別
+# "old" | "oldnew" | "new" | その他
+UPLOAD_TYPE=$1
 
 # jmc_w_ins_cmtディレクトリ
 CMT_DIR=/data/jmc/jmc_w_ins_cmt
@@ -45,6 +49,37 @@ ERROR_LOG_DIR=/var/log/zenikyo
 ERROR_LOG_FILE=${ERROR_LOG_DIR}/error.log
 
 #####################################################################################################
+
+# 請求データファイルのアップロード
+file_upload() {
+	type=$1
+	bucket=$2
+	key=$3
+	data=$4
+
+	case "${type}" in
+		old)
+			s3upload ${bucket} ${key} ${data}
+			return $?
+			;;
+		oldnew)
+			s3upload ${bucket} ${key} ${data}
+			if [ $? -ne 0 ]; then
+				return $?
+			fi
+			s3upload_aes256 ${bucket} ${key} ${data} "pass"
+			return $?
+			;;
+		new)
+			s3upload_aes256 ${bucket} ${key} ${data} "pass"
+			return $?
+			;;
+		*)
+			s3upload_aes256 ${bucket} ${key} ${data} "pass"
+			return $?
+			;;
+	esac
+}
 
 # エラーログ出力先が無ければ作成
 if [ ! -e ${ERROR_LOG_DIR} ]; then
@@ -85,15 +120,17 @@ done
 # S3へのファイルアップロード
 upload_files=`find ${ZIP_DIR} -type f -name '*'${EXT_ZIP}`
 for upload_file in ${upload_files}; do
-        # ファイルのZIP化
+	# key eg. .-data-jmc-jmc_w_ins_cmt-202201-00001-0001.txt.zip
         key=.${upload_file##*/}
-	return_error=$(s3upload ${upload_file} ${key} ${BUCKET_NAME} ${AWSCLI_USER})
+	return_error=$(file_upload ${UPLOAD_TYPE} ${BUCKET_NAME} ${key} ${upload_file})
 	return_code=$?
 
         # 送信エラーになった場合
         if [ ${return_code} -ne 0 ]; then
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」Could not upload ${upload_file} to S3." >> ${ERROR_LOG_FILE}
-                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」${return_error}" >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」\
+			Could not upload ${upload_file} to S3." >> ${ERROR_LOG_FILE}
+                echo "[`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」\
+			${return_error}" >> ${ERROR_LOG_FILE}
 	else
 		# 送信済みZIPファイルの削除
 		rm ${upload_file}
