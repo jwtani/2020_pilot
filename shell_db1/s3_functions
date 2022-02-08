@@ -13,7 +13,6 @@ function s3upload() {
     local key=$2
     local data=$3
     local hash_value
-    local return_code=0
 
     # エラー：引数の数が３以外
     if [ $# -ne 3 ]; then
