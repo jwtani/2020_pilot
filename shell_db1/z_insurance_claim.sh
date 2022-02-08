@@ -27,18 +27,54 @@ ZIP_PASS="3z061119"
 # 仮）AES256暗号化アップロード時の暗号キー
 ENC_PASS="a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"
 
+# エラーログ出力
+output_error() {
+    message="$1"
+    logfile=$2
+
+    echo [`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」${message} >> ${logfile}
+}
+
 # 多重起動回避
 return_error=`check_multiple $(basename $0)`
 return_code=$?
 if [ ${return_code} -ne 0 ]; then
-    echo ${return_error} >> ${ERROR_LOG_FILE}
+    output_error "${return_error}" ${ERROR_LOG_FILE}
     exit 1
 fi
 
 # メイン処理
 main() {
-    is_old=$1
-    is_new=$2
+    local upload_type=${1-}
+    local is_old=false
+    local is_new=false
+    local targets
+
+    # エラーログ出力先が無ければ作成
+    if [ ! -e ${ERROR_LOG_DIR} ]; then
+        mkdir ${ERROR_LOG_DIR}
+    fi
+
+    # zipファイルの一時格納先ディレクトリが無かったら作成
+    if [ ! -e ${ZIP_DIR} ]; then
+        mkdir -p ${ZIP_DIR}
+    fi
+
+    if [ "${upload_type}" = "old" ]; then
+        is_old=true
+    fi
+    if [ "${upload_type}" = "new" ] || [ "${upload_type}" = "" ]; then
+        is_new=true
+    fi
+    if [ "${upload_type}" = "oldnew" ]; then
+        is_old=true
+        is_new=true
+    fi
+
+    if [ ! ${is_old} ] && [ ! ${is_new} ]; then
+        echo Invalid argument specified.
+        return 1
+    fi
 
     targets=`find ${CMT_DIR} -regextype posix-basic \
         -regex '^'${CMT_DIR}'/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
@@ -51,7 +87,13 @@ main() {
             ins5=${split_path[4]}
             ins4=`echo ${split_path[5]} | sed 's/\.txt$//'`
             key=${ym}/${ins5}-${ins4}-enc.txt
-            s3upload_aes256 ${NEW_BUCKET_NAME} ${key} ${target} ${ENC_PASS}
+            return_error=`s3upload_aes256 ${NEW_BUCKET_NAME} ${key} ${target} ${ENC_PASS}`
+            return_code=$?
+
+            # 送信エラーになった場合
+            if [ ${return_code} -ne 0 ]; then
+                output_error "Could not upload ${target} to S3. ${return_error}" ${ERROR_LOG_FILE}
+            fi
         fi
 
         # 履歴ディレクトリを作成
@@ -85,9 +127,7 @@ main() {
 
         # 送信エラーになった場合
         if [ ${return_code} -ne 0 ]; then
-            echo [`date '+%Y/%m/%d %H:%M:%S'`] 「Insurance claim data」\
-                Could not upload ${upload_file} to S3.$'\n' ${return_error}\
-                >> ${ERROR_LOG_FILE}
+            output_error "Could not upload ${upload_file} to S3. ${return_error}" ${ERROR_LOG_FILE}
         else
             # 送信済みZIPファイルの削除
             rm ${upload_file}
@@ -97,36 +137,5 @@ main() {
     return 0
 }
 
-# エラーログ出力先が無ければ作成
-if [ ! -e ${ERROR_LOG_DIR} ]; then
-        mkdir ${ERROR_LOG_DIR}
-fi
+main $@ 1>/dev/null
 
-# zipファイルの一時格納先ディレクトリが無かったら作成
-if [ ! -e ${ZIP_DIR} ]; then
-        mkdir -p ${ZIP_DIR}
-fi
-
-upload_type=${1-}
-is_old=false
-if [[ "${upload_type}" =~ "old" ]]; then
-    is_old=true
-fi
-is_new=false
-if [[ "${upload_type}" =~ "new" ]] || [[ "${upload_type}" =~ "" ]]; then
-    is_new=true
-fi
-
-if [ ! ${is_old} ] && [ ! ${is_new} ]; then
-    echo Invalid argument specified.
-    exit 1
-fi
-
-return_error=`main ${is_old} ${is_new} 2>&1 1>/dev/null`
-
-if [ $? -ne 0 ]; then
-    echo ${return_error} >> ${ERROR_LOG_FILE}
-    exit 1
-fi
-
-exit 0
