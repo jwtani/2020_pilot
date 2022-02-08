@@ -93,6 +93,8 @@ main() {
             # 送信エラーになった場合
             if [ ${return_code} -ne 0 ]; then
                 output_error "Could not upload ${target} to S3. ${return_error}" ${ERROR_LOG_FILE}
+                # ファイル移動は行わずスキップ
+                continue
             fi
         fi
 
