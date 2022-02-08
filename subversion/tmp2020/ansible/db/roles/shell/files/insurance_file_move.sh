@@ -9,8 +9,7 @@ INS_CODE=$1
 CHAR_CODE=$2
 
 # メール送信先アドレス
-#TO_ADDR=hoken@zen-ikyo.or.jp
-TO_ADDR=tani@j-wing.jp
+TO_ADDR=hoken@zen-ikyo.or.jp
 
 # 全銀ミドル出力ファイルを変換し移動
 file_trans_cp932() {
