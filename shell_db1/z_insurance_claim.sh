@@ -14,6 +14,18 @@ HIST_DIR=/data/jmc/jmc_w_history
 ZIP_DIR=/home/jw/jmc_upload/ins_clm
 ERROR_LOG_DIR=/var/log/zenikyo
 ERROR_LOG_FILE=${ERROR_LOG_DIR}/error.log
+# 送信先S3バケット名: 旧
+BUCKET_NAME="zop-prod-to-ec2"
+# 送信先S3バケット名: 新
+NEW_BUCKET_NAME="mcs-prod-bills"
+# AWS CLIユーザー
+AWSCLI_USER="data-linkage"
+# ZIP拡張子
+EXT_ZIP=".zip"
+# ZIPファイルのパスワード
+ZIP_PASS="3z061119"
+# 仮）AES256暗号化アップロード時の暗号キー
+ENC_PASS="a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"
 
 # 多重起動回避
 return_error=`check_multiple $(basename $0)`
@@ -22,24 +34,6 @@ if [ ${return_code} -ne 0 ]; then
     echo ${return_error} >> ${ERROR_LOG_FILE}
     exit 1
 fi
-
-# 送信先S3バケット名: 旧
-BUCKET_NAME="zop-prod-to-ec2"
-
-# 送信先S3バケット名: 新
-NEW_BUCKET_NAME="mcs-prod-bills"
-
-# AWS CLIユーザー
-AWSCLI_USER="data-linkage"
-
-# ZIP拡張子
-EXT_ZIP=".zip"
-
-# ZIPファイルのパスワード
-ZIP_PASS="3z061119"
-
-# 仮）AES256暗号化アップロード時の暗号キー
-ENC_PASS="a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"
 
 # メイン処理
 main() {
@@ -113,8 +107,7 @@ if [ ! -e ${ZIP_DIR} ]; then
         mkdir -p ${ZIP_DIR}
 fi
 
-set +u
-upload_type=$1
+upload_type=${1-}
 is_old=false
 if [[ "${upload_type}" =~ "old" ]]; then
     is_old=true
@@ -123,14 +116,13 @@ is_new=false
 if [[ "${upload_type}" =~ "new" ]] || [[ "${upload_type}" =~ "" ]]; then
     is_new=true
 fi
-set -u
 
 if [ ! ${is_old} ] && [ ! ${is_new} ]; then
     echo Invalid argument specified.
     exit 1
 fi
 
-return_error=`main is_old is_new 2>&1 1>/dev/null`
+return_error=`main ${is_old} ${is_new} 2>&1 1>/dev/null`
 
 if [ $? -ne 0 ]; then
     echo ${return_error} >> ${ERROR_LOG_FILE}
