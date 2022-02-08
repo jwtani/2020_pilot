@@ -93,7 +93,7 @@ main() {
             # 送信エラーになった場合
             if [ ${return_code} -ne 0 ]; then
                 output_error "Could not upload ${target} to S3. ${return_error}" ${ERROR_LOG_FILE}
-                # ファイル移動は行わずスキップ
+                # 後の処理はスキップ
                 continue
             fi
         fi
@@ -130,10 +130,12 @@ main() {
         # 送信エラーになった場合
         if [ ${return_code} -ne 0 ]; then
             output_error "Could not upload ${upload_file} to S3. ${return_error}" ${ERROR_LOG_FILE}
-        else
-            # 送信済みZIPファイルの削除
-            rm ${upload_file}
+            # 後の処理はスキップ
+            continue
         fi
+
+        # 送信済みZIPファイルの削除
+        rm ${upload_file}
     done
 
     return 0
