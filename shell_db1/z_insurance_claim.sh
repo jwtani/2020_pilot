@@ -9,19 +9,19 @@ CURRENT_DIR=$(cd $(dirname $0) && pwd)
 . ${CURRENT_DIR}/common_functions
 . ${CURRENT_DIR}/s3_functions
 
-# 多重起動回避
-return_error=`check_multiple $(basename $0)`
-return_code=$?
-if [ ${return_code} -ne 0 ]; then
-    echo ${return_error}
-    exit 1
-fi
-
 CMT_DIR=/data/jmc/jmc_w_ins_cmt
 HIST_DIR=/data/jmc/jmc_w_history
 ZIP_DIR=/home/jw/jmc_upload/ins_clm
 ERROR_LOG_DIR=/var/log/zenikyo
 ERROR_LOG_FILE=${ERROR_LOG_DIR}/error.log
+
+# 多重起動回避
+return_error=`check_multiple $(basename $0)`
+return_code=$?
+if [ ${return_code} -ne 0 ]; then
+    echo ${return_error} >> ${ERROR_LOG_FILE}
+    exit 1
+fi
 
 # 送信先S3バケット名: 旧
 BUCKET_NAME="zop-prod-to-ec2"
@@ -41,6 +41,7 @@ ZIP_PASS="3z061119"
 # 仮）AES256暗号化アップロード時の暗号キー
 ENC_PASS="a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"
 
+# メイン処理
 main() {
     is_old=$1
     is_new=$2
@@ -48,13 +49,14 @@ main() {
     targets=`find ${CMT_DIR} -regextype posix-basic \
         -regex '^'${CMT_DIR}'/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{4\}\.txt$'`
     for target in ${targets}; do
-        
-        ym=${targets%/*}
-        ym=${ym##*/}
+        split_path=(${target//\// })
+        ym=${split_path[3]}
 
         # 新方式アップロード
         if [ ${is_new} ]; then
-            key=ym/00001-0001.txt
+            ins5=${split_path[4]}
+            ins4=`echo ${split_path[5]} | sed 's/\.txt$//'`
+            key=${ym}/${ins5}-${ins4}-enc.txt
             s3upload_aes256 ${NEW_BUCKET_NAME} ${key} ${target} ${ENC_PASS}
         fi
 
@@ -73,6 +75,11 @@ main() {
         # 履歴ファイル移動
         mv ${target} ${ins_hist_dir}
     done
+
+    # 旧方式無しならここで抜ける
+    if [ ! ${is_old} ]; then
+        return 0
+    fi
 
     # 旧方式アップロード
     upload_files=`find ${ZIP_DIR} -type f -name '*'${EXT_ZIP}`
@@ -117,6 +124,11 @@ if [[ "${upload_type}" =~ "new" ]] || [[ "${upload_type}" =~ "" ]]; then
     is_new=true
 fi
 set -u
+
+if [ ! ${is_old} ] && [ ! ${is_new} ]; then
+    echo Invalid argument specified.
+    exit 1
+fi
 
 return_error=`main is_old is_new 2>&1 1>/dev/null`
 

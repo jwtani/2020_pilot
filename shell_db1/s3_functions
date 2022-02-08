@@ -39,8 +39,7 @@ function s3upload() {
     # エラーのみ出力
     aws s3api put-object --bucket ${bucket} --key ${key} --body ${data} \
         --content-md5 ${hash_value} \
-        --metadata md5checksum=${hash_value} \
-        2>&1 1>/dev/null
+        --metadata md5checksum=${hash_value} 2>&1 1>/dev/null
 
     return $?
 }
@@ -53,7 +52,7 @@ s3upload_aes256() {
     local pass=$4
     local debug
 
-    # エラー：引数の数が３以外
+    # エラー：引数の数が４以外
     if [ $# -ne 4 ]; then
         echo ERROR: Invalid argument count. Specify four arguments. \<bucket\> \<key\> \<data\> \<pass\>
         return 1
