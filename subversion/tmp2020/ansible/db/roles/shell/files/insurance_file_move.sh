@@ -6,7 +6,7 @@ umask 007
 INS_CODE=$1
 
 # "ebcdic" | "ebcdic_old" | その他
-CHAR_CODE=$2
+CHAR_CODE=${2-}
 
 # メール送信先アドレス
 TO_ADDR=hoken@zen-ikyo.or.jp
@@ -14,7 +14,7 @@ TO_ADDR=hoken@zen-ikyo.or.jp
 # 全銀ミドル出力ファイルを変換し移動
 file_trans_cp932() {
     local inscode=$1
-    local charcode=$2
+    local charcode=${2-}
     local ym=`date +%Y%m`
     local infile=/data/jmc/${inscode}.txt
     local outdir=/data/jmc/jmc_w_ins_trans/${ym}/${inscode}
