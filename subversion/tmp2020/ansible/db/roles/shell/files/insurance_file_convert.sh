@@ -27,7 +27,7 @@ for infile in ${infiles}; do
     # 文字コード変換
     iconv -f 'IBM930' -t 'IBM-943' ${infile} | fold -bw ${bw} > ${tmpfile}
     echo "" >> ${tmpfile}
-    unix2dos ${tmpfile}
+    unix2dos -q ${tmpfile}
 
     # ファイル移動
     outfile=${BASE_DIR}/jmc_w_ins_cmt/${ym}/${ins}/${outfile_name}
