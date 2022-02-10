@@ -71,7 +71,7 @@ main() {
         is_new=true
     fi
 
-    if [ ! ${is_old} ] && [ ! ${is_new} ]; then
+    if ! "${is_old}" && ! "${is_new}"; then
         echo Invalid argument specified.
         return 1
     fi
@@ -83,7 +83,7 @@ main() {
         ym=${split_path[3]}
 
         # 新方式アップロード
-        if [ ${is_new} ]; then
+        if "${is_new}"; then
             ins5=${split_path[4]}
             ins4=`echo ${split_path[5]} | sed 's/\.txt$//'`
             key=${ym}/${ins5}-${ins4}-enc.txt
@@ -104,7 +104,7 @@ main() {
         mkdir -p ${ins_hist_dir}
 
         # 旧方式アップロード対象ならZIP化
-        if [ ${is_old} ]; then
+        if "${is_old}"; then
             zip_path="${ZIP_DIR}/${target//\//-}"
             zip -er --password=${ZIP_PASS} ${zip_path} ${target}
             mv ${zip_path} ${zip_path}${EXT_ZIP}
@@ -115,7 +115,7 @@ main() {
     done
 
     # 旧方式無しならここで抜ける
-    if [ ! ${is_old} ]; then
+    if ! "${is_old}"; then
         return 0
     fi
 
