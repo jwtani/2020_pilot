@@ -1,12 +1,11 @@
 #!/bin/bash
 set -u
-umask 007
 
 # 保険会社コード
 INS_CODE=$1
 
 # "ebcdic" | "ebcdic_old" | その他
-CHAR_CODE=$2
+CHAR_CODE=${2-}
 
 # メール送信先アドレス
 TO_ADDR=hoken@zen-ikyo.or.jp
@@ -14,27 +13,44 @@ TO_ADDR=hoken@zen-ikyo.or.jp
 # 全銀ミドル出力ファイルを変換し移動
 file_trans_cp932() {
     local inscode=$1
-    local charcode=$2
+    local charcode=${2-}
     local ym=`date +%Y%m`
     local infile=/data/jmc/${inscode}.txt
     local outdir=/data/jmc/jmc_w_ins_trans/${ym}/${inscode}
     local tmpfile=${outdir}/${inscode}
     local outfile=${tmpfile}.txt
+    local return_code=0
 
     case "${charcode}" in
         ebcdic)
             iconv -f IBM930 -t UTF-8 ${infile} | nkf -x --windows > ${tmpfile}
-            return $?
+            return_code=$?
             ;;
         ebcdic_old)
             iconv -f EBCDIC-JP-KANA -t UTF-8 ${infile} | nkf -s > ${tmpfile}
-            return $?
+            return_code=$?
             ;;
         *)
             cp ${infile} ${tmpfile}
-            return $?
+            return_code=$?
             ;;
     esac
+
+    if [ ${return_code} -ne 0 ]; then
+        return ${return_code}
+    fi
+
+    mv {tmpfile} {outfile}
+    return_code=$?
+
+    if [ ${return_code} -ne 0 ]; then
+        return ${return_code}
+    fi
+
+    chmod 0770 ${outfile}
+    return_code=$?
+
+    return ${return_code}
 }
 
 # メール送信
