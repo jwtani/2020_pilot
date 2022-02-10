@@ -7,7 +7,7 @@ function check_multiple() {
     local target=$1
 
     # 実行中のプロセス数
-    local ps_count=`ps aux | pgrep -xfc '^((/bin/bash )|/|\./)[^ ]*/'${target}'$'`
+    local ps_count=`ps aux | pgrep -xfc '^((/bin/bash )|/|\./)[^ ]*/'${target}'.*$'`
 
     # 既に起動中ならエラー終了
     if [ ${ps_count} -gt 3 ]; then
