@@ -1,6 +1,5 @@
 #!/bin/bash
 set -u
-umask 007
 
 # 保険会社コード
 INS_CODE=$1
@@ -19,21 +18,31 @@ file_trans_cp932() {
     local infile=/data/jmc/${inscode}.txt
     local outdir=/data/jmc/jmc_w_ins_trans/${ym}/${inscode}
     local outfile=${outdir}/${inscode}.txt
+    local return_code=0
 
     case "${charcode}" in
         ebcdic)
             iconv -f IBM930 -t UTF-8 ${infile} | nkf -x --windows > ${outfile}
-            return $?
+            return_code=$?
             ;;
         ebcdic_old)
             iconv -f EBCDIC-JP-KANA -t UTF-8 ${infile} | nkf -s > ${outfile}
-            return $?
+            return_code=$?
             ;;
         *)
             cp ${infile} ${outfile}
-            return $?
+            return_code=$?
             ;;
     esac
+
+    if [ ${return_code} -ne 0 ]; then
+        return ${return_code}
+    fi
+
+    chmod 0770 ${outfile}
+    return_code=$?
+
+    return ${return_code}
 }
 
 # メール送信
