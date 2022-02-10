@@ -72,7 +72,7 @@ main() {
     fi
 
     if ! "${is_old}" && ! "${is_new}"; then
-        echo Invalid argument specified.
+        echo Invalid argument specified. >&2
         return 1
     fi
 
