@@ -17,23 +17,31 @@ file_trans_cp932() {
     local ym=`date +%Y%m`
     local infile=/data/jmc/${inscode}.txt
     local outdir=/data/jmc/jmc_w_ins_trans/${ym}/${inscode}
-    local outfile=${outdir}/${inscode}.txt
+    local tmpfile=${outdir}/${inscode}
+    local outfile=${tmpfile}.txt
     local return_code=0
 
     case "${charcode}" in
         ebcdic)
-            iconv -f IBM930 -t UTF-8 ${infile} | nkf -x --windows > ${outfile}
+            iconv -f IBM930 -t UTF-8 ${infile} | nkf -x --windows > ${tmpfile}
             return_code=$?
             ;;
         ebcdic_old)
-            iconv -f EBCDIC-JP-KANA -t UTF-8 ${infile} | nkf -s > ${outfile}
+            iconv -f EBCDIC-JP-KANA -t UTF-8 ${infile} | nkf -s > ${tmpfile}
             return_code=$?
             ;;
         *)
-            cp ${infile} ${outfile}
+            cp ${infile} ${tmpfile}
             return_code=$?
             ;;
     esac
+
+    if [ ${return_code} -ne 0 ]; then
+        return ${return_code}
+    fi
+
+    mv {tmpfile} {outfile}
+    return_code=$?
 
     if [ ${return_code} -ne 0 ]; then
         return ${return_code}
