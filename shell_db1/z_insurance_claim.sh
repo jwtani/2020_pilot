@@ -24,8 +24,8 @@ AWSCLI_USER="data-linkage"
 EXT_ZIP=".zip"
 # ZIPファイルのパスワード
 ZIP_PASS="3z061119"
-# 仮）AES256暗号化アップロード時の暗号キー
-ENC_PASS="a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"
+# AES256暗号化アップロードで使用する暗号化キー
+ENC_PASS="LEkkA6L6NGWjXs0Czu0WvAKgGXofU09F"
 
 # エラーログ出力
 output_error() {
