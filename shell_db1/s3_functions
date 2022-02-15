@@ -50,6 +50,7 @@ s3upload_aes256() {
     local key=$2
     local data=$3
     local pass=$4
+    local hash_value
     local debug
 
     # エラー：引数の数が４以外
@@ -64,12 +65,22 @@ s3upload_aes256() {
         return 1
     fi
 
+    # 対象ファイルのMD5ハッシュ値を取得
+    hash_value=`openssl md5 -binary ${data} | base64`
+
+    # エラー：MD5ハッシュ値取得に失敗
+    if [ $? -ne 0 ]; then
+        echo ERROR: Faild to get ${data} md5checksum.
+        return 1
+    fi
+
     # エラーのみ出力
     # --debugをつけると詳細エラー出力
     debug=""
     #debug="--debug"
     aws s3api put-object --bucket ${bucket} --key ${key} --body ${data} \
-        --content-md5 `openssl md5 -binary ${data} | base64` \
+        --content-md5 ${hash_value} \
+        --metadata md5checksum=${hash_value} \
         --sse-customer-algorithm AES256 \
         --sse-customer-key ${pass} ${debug} 2>&1 1>/dev/null
 
