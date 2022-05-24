@@ -7,7 +7,7 @@ BASE_DIR=/data/jmc
 TRANS_DIR=${BASE_DIR}/jmc_w_ins_trans
 
 infiles=`find ${TRANS_DIR} -regextype posix-basic \
-    -regex '^'${TRANS_DIR}'/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{5\}_[0-9]\{4\}\.txt$'`
+    -regex '^'${TRANS_DIR}'/[0-9]\{6\}/[0-9]\{5\}/[0-9]\{5\}_[0-9]\{4,\}\.txt$'`
 for infile in ${infiles}; do
     ym=`echo ${infile} | cut -d"/" -f5`
     ins=`echo ${infile} | cut -d"/" -f6`

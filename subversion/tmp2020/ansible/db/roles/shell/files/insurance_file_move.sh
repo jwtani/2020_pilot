@@ -40,7 +40,7 @@ file_trans_cp932() {
         return ${return_code}
     fi
 
-    mv {tmpfile} {outfile}
+    mv ${tmpfile} ${outfile}
     return_code=$?
 
     if [ ${return_code} -ne 0 ]; then
